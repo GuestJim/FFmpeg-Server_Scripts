@@ -35,12 +35,18 @@ CALL :AUDchannel "%~1" CHAN4 4
 CALL :AUDchannel "%~1" CHAN5 5
 CALL :AUDchannel "%~1" CHAN6 6
 
+::	uncomment for 2-pass encoding
+REM ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -an ^
+REM -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
+REM -x265-params pass=1 -f null NUL && ^
+::	move to after line 45 (beginning -map 0:v) and uncomment
+REM -x265-params pass=2 ^
 ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -map 0:s -c:s copy ^
 -map 0:v -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--c:a libopus -vbr 1 -ac 6 ^
+-c:a libopus -vbr 1 -ac %CHAN0% ^
 -map 0:a:1 -metadata:s:a:0 title="Surround 5.1" ^
 "%folder%\%~n1 - AV.mkv" ^
--c:a libopus -vbr 1 -ac 2 ^
+-c:a libopus -vbr 1 -ac %CHAN3% ^
 -map 0:a:3 -metadata:s:a:0 title="Commentary - Philosophers" ^
 -map 0:a:4 -metadata:s:a:1 title="Commentary - Critics" ^
 -map 0:a:5 -metadata:s:a:2 title="Commentary - Cast and Crew" ^
@@ -52,6 +58,8 @@ ffmpeg -hide_banner -i "%folder%\%~n1 - AV.mkv" -i "%folder%\%~n1 - A.mka" -c co
 -disposition:a:0 default "%folder%\%~n1.mkv"
 REM -map 0:v -map 0:a -map 1:a -map 0:s -c:s copy -map_metadata 0 -map_metadata 1 ^
 
+del x265_2pass.log.cutree
+del x265_2pass.log
 shift
 
 if "%~1"=="" goto end
