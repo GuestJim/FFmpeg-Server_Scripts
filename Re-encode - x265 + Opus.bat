@@ -26,8 +26,10 @@ if %height% LEQ 480 set rate=1500k
 CALL :AUDchannel "%~1" CHAN
 
 CALL :X265process "%~1" %rate%
+REM CALL :X265pass "%~1" %rate%
 
 REM CALL :X265scale "%~1" %height% %rate%
+REM CALL :X265passscale "%~1" %height% %rate%
 
 shift
 
@@ -88,6 +90,50 @@ if "%preset%"=="" set preset=medium
 ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -c:s copy ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
 -ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1 - %scale%p.mkv"
+exit /B 0
+
+
+:X265pass <input> <rate> <crf> <preset>
+set rate=%~2
+if "%rate%"=="" set rate=%rate265%
+set crf=%~3
+if "%crf%"=="" set crf=18
+set speed=%~4
+if "%preset%"=="" set preset=medium
+
+ffmpeg -hide_banner -i "%~1" -vf "setpts=PTS-STARTPTS" -an ^
+-c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
+-x265-params pass=1 -f null NUL && ^
+ffmpeg -hide_banner -i "%~1" -vf "setpts=PTS-STARTPTS" -c:s copy ^
+-c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
+-x265-params pass=2 ^
+-ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1.mkv"
+
+del x265_2pass.log.cutree
+del x265_2pass.log
+exit /B 0
+
+:X265passscale <input> <scale> <rate> <crf> <preset>
+set FILT=setpts=PTS-STARTPTS
+set scale=%~2
+if NOT "%scale%"=="" set FILT=%FILT%,scale=-4:'min(ih,%scale%)'
+set rate=%~3
+if "%rate%"=="" set rate=%rate265%
+set crf=%~4
+if "%crf%"=="" set crf=18
+set speed=%~5
+if "%preset%"=="" set preset=medium
+
+ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -an ^
+-c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
+-x265-params pass=1 -f null NUL && ^
+ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -c:s copy ^
+-c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
+-x265-params pass=2 ^
+-ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1.mkv"
+
+del x265_2pass.log.cutree
+del x265_2pass.log
 exit /B 0
 
 
