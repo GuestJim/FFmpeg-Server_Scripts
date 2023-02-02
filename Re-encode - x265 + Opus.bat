@@ -103,14 +103,14 @@ if "%preset%"=="" set preset=medium
 
 ffmpeg -hide_banner -i "%~1" -vf "setpts=PTS-STARTPTS" -an ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--x265-params pass=1 -f null NUL && ^
+-x265-params pass=1:stats="%~n1.log" -f null NUL && ^
 ffmpeg -hide_banner -i "%~1" -vf "setpts=PTS-STARTPTS" -c:s copy ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--x265-params pass=2 ^
+-x265-params pass=2:stats="%~n1.log" ^
 -ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1.mkv"
 
-del x265_2pass.log.cutree
-del x265_2pass.log
+del "%~n1.log.cutree"
+del "%~n1.log"
 exit /B 0
 
 :X265passscale <input> <scale> <rate> <crf> <preset>
@@ -126,14 +126,14 @@ if "%preset%"=="" set preset=medium
 
 ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -an ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--x265-params pass=1 -f null NUL && ^
+-x265-params pass=1:stats="%~n1.log" -f null NUL && ^
 ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -c:s copy ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--x265-params pass=2 ^
+-x265-params pass=2:stats="%~n1.log" ^
 -ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1.mkv"
 
-del x265_2pass.log.cutree
-del x265_2pass.log
+del "%~n1.log.cutree"
+del "%~n1.log"
 exit /B 0
 
 
