@@ -23,7 +23,7 @@ if %height% LEQ 480 set rate=1500k
 
 :ENC
 set FILT=setpts=PTS-STARTPTS
-REM set FILT=%FILT%,scale=-4:'min(ih,%scale%)'
+REM set FILT=%FILT%,scale=-4:'min(ih,%height%)'
 set crf=18
 set preset=medium
 
