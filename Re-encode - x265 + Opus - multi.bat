@@ -94,7 +94,7 @@ exit /B 0
 
 :AUDchannel <input> <variable> <stream>
 set stream=%~3
-if NOT "%stream%"=="" set %stream%=0
+if "%stream%"=="" set stream=0
 for /f "tokens=*" %%I in ('ffprobe -v error -of default^=noprint_wrappers^=1:nokey^=1 -show_entries stream^=channels -select_streams a:%stream% -i "%~1"') do set OUT=%%I
 set /A "%~2=%OUT%"
 exit /B 0
