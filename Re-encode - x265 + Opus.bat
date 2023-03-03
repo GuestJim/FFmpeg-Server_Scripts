@@ -24,12 +24,17 @@ if %height% LEQ 480 set rate=1500k
 
 :ENC
 CALL :AUDchannel "%~1" CHAN
+CALL :RATEopus rateA 0 0
+::	with either the stereo or mono bitrate set to 0, rateA will be blank and the defaults are used
 
 CALL :X265process "%~1" %rate%
 REM CALL :X265pass "%~1" %rate%
 
 REM CALL :X265scale "%~1" %height% %rate%
 REM CALL :X265passscale "%~1" %height% %rate%
+
+REM CALL :X265crop "%~1" 72 %rate% 72
+REM CALL :X265passcrop "%~1" 72 %rate% 72
 
 shift
 
@@ -60,6 +65,24 @@ set crf=%~2
 set preset=%~3
 exit /B 0
 
+:RATEopus <variable> <pair> <mono>
+::	96 per stereo pair, 64 per mono channel (center, subwoofer)
+set pair=%~2
+if "%pair%"=="" set /A pair=96
+set mono=%~3
+if "%mono%"=="" set /A mono=64
+
+if %CHAN% LEQ 8 set /A OUT=%pair%*3 + %mono%*2
+if %CHAN% LEQ 6 set /A OUT=%pair%*2 + %mono%*2
+if %CHAN% LEQ 2 set /A OUT=%pair%
+
+if %OUT% GEQ 512 set OUT=512
+::	libopus has a maximum bitrate
+set "%~1=-b:a %OUT%k"
+if %pair%==0 set "%~1=" & if %mono%==0 set "%~1="
+::	can be used to let libopus use its defaults
+exit /B 0
+
 :X265process <input> <rate> <crf> <preset>
 set rate=%~2
 if "%rate%"=="" set rate=%rate265%
@@ -72,7 +95,7 @@ if "%preset%"=="" set preset=medium
 
 ffmpeg -hide_banner -i "%~1" -vf "setpts=PTS-STARTPTS" -c:s copy ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1.mkv"
+-ac %CHAN% -c:a libopus %rateA% -vbr 1 "%folder%\%~n1.mkv"
 ::	necessary to indicate audio channels or libopus fails with multi-channel
 exit /B 0
 
@@ -89,7 +112,23 @@ if "%preset%"=="" set preset=medium
 
 ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -c:s copy ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1 - %scale%p.mkv"
+-ac %CHAN% -c:a libopus %rateA% -vbr 1 "%folder%\%~n1 - %scale%p.mkv"
+exit /B 0
+
+:X265crop <input> <crop> <rate> <crf> <preset>
+set FILT=setpts=PTS-STARTPTS
+set crop=%~2
+if NOT "%crop%"=="" set FILT=%FILT%,crop=in_w:in_h-2*%crop%:0:%crop%
+set rate=%~3
+if "%rate%"=="" set rate=%rate265%
+set crf=%~4
+if "%crf%"=="" set crf=18
+set speed=%~5
+if "%preset%"=="" set preset=medium
+
+ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -c:s copy ^
+-c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
+-ac %CHAN% -c:a libopus %rateA% -vbr 1 "%folder%\%~n1 - crop.mkv"
 exit /B 0
 
 
@@ -103,11 +142,13 @@ if "%preset%"=="" set preset=medium
 
 ffmpeg -hide_banner -i "%~1" -vf "setpts=PTS-STARTPTS" -an ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--x265-params pass=1:stats="%~n1.log" -f null NUL && ^
-ffmpeg -hide_banner -i "%~1" -vf "setpts=PTS-STARTPTS" -c:s copy ^
+-x265-params pass=1:stats="%~n1.log" -f null NUL
+
+REM -x265-params pass=1:stats="%~n1.log" -f null NUL && ^
+ffmpeg -hide_banner -i "%~n1" -vf "setpts=PTS-STARTPTS" -c:s copy ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
 -x265-params pass=2:stats="%~n1.log" ^
--ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1.mkv"
+-ac %CHAN% -c:a libopus %rateA% -vbr 1 "%folder%\%~n1.mkv"
 
 del "%~n1.log.cutree"
 del "%~n1.log"
@@ -126,11 +167,36 @@ if "%preset%"=="" set preset=medium
 
 ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -an ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
--x265-params pass=1:stats="%~n1.log" -f null NUL && ^
+-x265-params pass=1:stats="%~n1.log" -f null NUL
+
+ffmpeg -hide_banner -i "%~n1" -vf "%FILT%" -c:s copy ^
+-c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
+-x265-params pass=2:stats="%~1.log" ^
+-ac %CHAN% -c:a libopus %rateA% -vbr 1 "%folder%\%~n1.mkv"
+
+del "%~n1.log.cutree"
+del "%~n1.log"
+exit /B 0
+
+:X265passcrop <input> <crop> <rate> <crf> <preset>
+set FILT=setpts=PTS-STARTPTS
+set crop=%~2
+if NOT "%crop%"=="" set FILT=%FILT%,crop=in_w:in_h-2*%crop%:0:%crop%
+set rate=%~3
+if "%rate%"=="" set rate=%rate265%
+set crf=%~4
+if "%crf%"=="" set crf=18
+set speed=%~5
+if "%preset%"=="" set preset=medium
+
+ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -an ^
+-c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
+-x265-params pass=1:stats="%~n1.log" -f null NUL
+
 ffmpeg -hide_banner -i "%~1" -vf "%FILT%" -c:s copy ^
 -c:v libx265 -pix_fmt yuv420p10le -crf %crf% -maxrate %rate% -bufsize %rate% -preset %preset% ^
 -x265-params pass=2:stats="%~n1.log" ^
--ac %CHAN% -c:a libopus -vbr 1 "%folder%\%~n1.mkv"
+-ac %CHAN% -c:a libopus %rateA% -vbr 1 "%folder%\%~n1.mkv"
 
 del "%~n1.log.cutree"
 del "%~n1.log"
